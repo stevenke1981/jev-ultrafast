@@ -71,7 +71,7 @@ Both providers answer the same questions, so the contract is identical: one obje
 
 To use TypeSafe's Jev for the choice heads, set `JEVA_PROVIDER=typesafe` and `TYPESAFE_API_KEY`. Without `JEVA_PROVIDER`, the provider follows whichever key is present, OpenRouter first. Any OpenAI-compatible service can serve the text helper through `TEXT_MODEL_BASE_URL`, `TEXT_MODEL`, and `TEXT_MODEL_REASONING`; `TEXT_MODEL_API_KEY` overrides the key for that call.
 
-The request asks for strict structured output (`OPENROUTER_SCHEMA=0` turns that off), so the decoder rather than the model guarantees that every offered key appears. Raw numbers for two OpenRouter configurations — three models, three calls each — are in `docs/openrouter-measurement.json`; they are a sample of one task, not a benchmark.
+The request asks for strict structured output (`OPENROUTER_SCHEMA=0` turns that off), so the decoder rather than the model guarantees that every offered key appears. Raw numbers for two OpenRouter configurations — three models, three calls each — plus one end-to-end run on the local fixture are in `docs/openrouter-measurement.json`; they are a sample of one task, not a benchmark.
 
 ## Use the library
 

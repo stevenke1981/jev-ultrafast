@@ -32,7 +32,7 @@
   ],
   "not_measured": [
     "TypeSafe comparison under the same task",
-    "the recorded flight task end to end (scripts/smoke.py needs the local Chrome remote-debugging approval)",
+    "the real-web Google Flights task end to end (scripts/measure_flights.py)",
     "deepseek reasoning enabled or at a higher effort"
   ],
   "note": "Validity means the answer passed validate_choice: every offered key present, probabilities in 0..1 summing to 1, chosen key most probable. Nothing is normalized; a rejected answer never reaches a browser input.",
@@ -131,5 +131,43 @@
     ],
     "reasoning_tokens": 0,
     "note": "Text helper for TYPE_TEXT, reasoning disabled; both calls answered with the same value as the mercury default did."
+  },
+  "end_to_end": {
+    "date": "2026-09-20",
+    "task": "The fixture scenario scripts/smoke.py drives: find Design stays in Lisbon with free cancellation, then open Casa Flora.",
+    "command": "uv run python scripts/smoke.py --max-actions 12",
+    "provider": "openrouter",
+    "decision_model": "deepseek/deepseek-v4.1-flash",
+    "text_model": "deepseek/deepseek-v4.1-flash",
+    "result": {
+      "verified": true,
+      "decisions": 6,
+      "actions": 5,
+      "elapsed_ms": 14444
+    },
+    "operations": [
+      "TYPE_TEXT",
+      "SELECT",
+      "CLICK",
+      "CLICK",
+      "CLICK",
+      "DONE"
+    ],
+    "checks": [
+      {
+        "check": "status is done",
+        "passed": true
+      },
+      {
+        "check": "final url ends with #casa-flora",
+        "passed": true
+      },
+      {
+        "check": "page text contains \"Your filters: Design · Free cancellation enabled · Destination Lisbon\"",
+        "passed": true
+      }
+    ],
+    "trace": "artifacts/dynamic/fixture/20260920T122849324381Z/ (local only; artifacts/ is gitignored)",
+    "note": "The three checks are the smoke script own assertions on the page it really reached, not a status flag. The text helper supplied \"Lisbon\" for the TYPE_TEXT step."
   }
 }
