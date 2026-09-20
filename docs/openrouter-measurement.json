@@ -168,6 +168,17 @@
       }
     ],
     "trace": "artifacts/dynamic/fixture/20260920T122849324381Z/ (local only; artifacts/ is gitignored)",
-    "note": "The three checks are the smoke script own assertions on the page it really reached, not a status flag. The text helper supplied \"Lisbon\" for the TYPE_TEXT step."
+    "note": "The three checks are the smoke script own assertions on the page it really reached, not a status flag. The text helper supplied \"Lisbon\" for the TYPE_TEXT step.",
+    "tokens_total": 16129,
+    "cost_usd": 0.006081,
+    "decision_latency_ms": [
+      2130,
+      2676,
+      2484,
+      1613,
+      1725,
+      1412
+    ],
+    "elapsed_ms_breakdown": "Model calls took 12040 ms of the 14444 ms; the rest is browser work between them."
   }
 }
