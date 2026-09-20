@@ -8,7 +8,7 @@
 
 **A browser agent with a dynamic, indexed action space.**
 
-Give it one goal. [TypeSafe's Jev](https://docs.typesafe.ai/introduction) picks an operation and an element. A small LLM writes text only when the operation is `TYPE_TEXT`.
+Give it one goal. A choice model picks an operation and an element — [OpenRouter](https://openrouter.ai) by default, or [TypeSafe's Jev](https://docs.typesafe.ai/introduction). A small LLM writes text only when the operation is `TYPE_TEXT`.
 
 **Zürich → London on Google Flights in 7.1 seconds.** One natural-language goal, actual text generation, and loading waits included.
 
@@ -57,7 +57,7 @@ git clone https://github.com/browser-use/jev-ultrafast.git
 cd jev-ultrafast
 uv sync
 cp .env.example .env
-# Add TYPESAFE_API_KEY and TEXT_MODEL_API_KEY.
+# Add OPENROUTER_API_KEY.
 uv run jev
 ```
 
@@ -65,7 +65,13 @@ Open **http://127.0.0.1:8766** and click **Start demo → Run automatically**. T
 
 Chrome connects through [Browser Harness](https://github.com/browser-use/browser-harness), installed by `uv sync`. Run `uv run browser-harness --doctor` if it needs connecting. Allow remote debugging in Chrome when prompted.
 
-`TEXT_MODEL_API_KEY` is an OpenRouter key in the example configuration. The current demo uses `inception/mercury-2.5` with reasoning disabled. Gemini, GLM, and DeepSeek can also use the OpenAI-compatible text helper; configure the appropriate model, endpoint, and reasoning setting.
+`OPENROUTER_API_KEY` drives both halves: the choice heads and the text helper. `OPENROUTER_MODEL` selects the model that answers the operation and target questions; the example uses `inception/mercury-2.5`. The text helper reuses the same key and defaults to the same model with reasoning disabled.
+
+Both providers answer the same questions, so the contract is identical: one object per question, a chosen key, and probabilities over every offered key that sum to 1. A response that does not conform is re-asked once with the rejection reason, then refused — nothing is normalized, and an unaccepted answer never reaches a browser input. Optional OpenRouter settings are `OPENROUTER_BASE_URL`, `OPENROUTER_MAX_TOKENS`, `OPENROUTER_REASONING`, `OPENROUTER_SITE_URL`, and `OPENROUTER_APP_NAME`.
+
+To use TypeSafe's Jev for the choice heads, set `JEVA_PROVIDER=typesafe` and `TYPESAFE_API_KEY`. Without `JEVA_PROVIDER`, the provider follows whichever key is present, OpenRouter first. Any OpenAI-compatible service can serve the text helper through `TEXT_MODEL_BASE_URL`, `TEXT_MODEL`, and `TEXT_MODEL_REASONING`; `TEXT_MODEL_API_KEY` overrides the key for that call.
+
+The request asks for strict structured output (`OPENROUTER_SCHEMA=0` turns that off), so the decoder rather than the model guarantees that every offered key appears. Raw numbers for one OpenRouter configuration — three models, three calls each — are in `docs/openrouter-measurement.json`; they are a sample of one task, not a benchmark.
 
 ## Use the library
 
@@ -116,6 +122,8 @@ Every executed target is resolved from an observed node. The executor rechecks p
 | [demo.py](jev_ultrafast/demo.py) | Local inspector |
 
 ## Evidence and limits
+
+**The choice-provider measurements below were taken with TypeSafe's Jev.** The OpenRouter path answers the same questions under the same validation, but its timings and call counts have not been re-measured; do not read the numbers below as OpenRouter numbers.
 
 The current video is a **7,073 ms** Google Flights run. Timing starts after initial page observation and includes model calls, generated text, browser work, stale decisions, and loading waits. A fresh independent check verifies the one-way setting, Zürich, London, September 20, 2026, and visible flight options. The video plays at 1×, with no opening hold and a 0.5-second final hold.
 

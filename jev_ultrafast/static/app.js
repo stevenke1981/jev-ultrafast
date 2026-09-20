@@ -69,6 +69,7 @@ async function perform(fn, label) {
 function render() {
   if (!state) return;
   $("helper").textContent = `Text helper · ${state.text_model}`;
+  $("model-tag").innerHTML = `${escape(state.provider || "model")} · ${escape(state.decision_model || "not configured")} <span>+ text helper</span>`;
   $("plan").innerHTML = (state.plan || [])
     .map(
       (goal, i) =>

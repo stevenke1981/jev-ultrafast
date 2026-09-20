@@ -9,6 +9,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
 
+from . import model
 from .agent import Agent
 from .questions import MAX_STEPS
 
@@ -23,7 +24,7 @@ AGENT = None
 def load_environment():
     path = Path.cwd() / ".env"
     if path.exists():
-        for line in path.read_text().splitlines():
+        for line in path.read_text(encoding="utf-8").splitlines():
             if "=" in line and not line.startswith("#"):
                 key, value = line.split("=", 1)
                 os.environ.setdefault(key, value)
@@ -31,7 +32,17 @@ def load_environment():
 
 def response_state():
     state = AGENT.snapshot() if AGENT else {"page": None, "status": "idle", "history": [], "decision": None}
-    return {**state, "text_model": os.environ.get("TEXT_MODEL", "deepseek-chat"), "max_steps": MAX_STEPS}
+    try:
+        provider_name, decision = model.provider(), model.decision_model()
+    except ValueError:
+        provider_name, decision = "unconfigured", None
+    return {
+        **state,
+        "provider": provider_name,
+        "decision_model": decision,
+        "text_model": os.environ.get("TEXT_MODEL", model.TEXT_MODEL_DEFAULT),
+        "max_steps": MAX_STEPS,
+    }
 
 
 def close_browser():
@@ -98,7 +109,7 @@ class Handler(BaseHTTPRequestHandler):
         if path not in files:
             return self.send(404, "Not found", "text/plain")
         name, mime = files[path]
-        content = (ROOT / "static" / name).read_text().replace("__TOKEN__", TOKEN)
+        content = (ROOT / "static" / name).read_text(encoding="utf-8").replace("__TOKEN__", TOKEN)
         self.send(200, content, mime + "; charset=utf-8")
 
     def do_POST(self):

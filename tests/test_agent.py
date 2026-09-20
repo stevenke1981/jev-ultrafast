@@ -10,6 +10,7 @@ import pytest
 from jev_ultrafast import agent as loop
 from jev_ultrafast import model
 from jev_ultrafast.browser import StalePage, browser_operation, fingerprint
+from jev_ultrafast.questions import CHOICE_JSON
 
 
 def page():
@@ -60,7 +61,7 @@ def test_invalid_choice_is_rejected(mutation):
         a["choice"] = "b"
     else:
         a["confidence"] = 5
-    with pytest.raises(ValueError, match="Invalid TypeSafe"):
+    with pytest.raises(ValueError, match="Invalid model response"):
         model.validate_choice(a, {"a", "b"})
 
 
@@ -88,6 +89,7 @@ def test_all_heads_are_one_request_and_only_matching_head_executes(monkeypatch):
             },
         }
 
+    monkeypatch.setenv("JEVA_PROVIDER", "typesafe")
     monkeypatch.setenv("TYPESAFE_API_KEY", "test")
     monkeypatch.setattr(model, "post_json", post)
     d = model.choose(page(), "Find a book", [])
@@ -107,9 +109,10 @@ def test_click_cannot_consume_a_text_target(monkeypatch):
             },
         }
 
+    monkeypatch.setenv("JEVA_PROVIDER", "typesafe")
     monkeypatch.setenv("TYPESAFE_API_KEY", "test")
     monkeypatch.setattr(model, "post_json", post)
-    with pytest.raises(ValueError, match="Invalid TypeSafe"):
+    with pytest.raises(ValueError, match="Invalid model response"):
         model.choose(page(), "Find a book", [])
 
 
@@ -134,6 +137,7 @@ def test_target_head_receives_control_state_and_full_next_step_rules(monkeypatch
             },
         }
 
+    monkeypatch.setenv("JEVA_PROVIDER", "typesafe")
     monkeypatch.setenv("TYPESAFE_API_KEY", "test")
     monkeypatch.setattr(model, "post_json", post)
     d = model.choose(p, "Search with free cancellation", [])
@@ -153,6 +157,7 @@ def test_quoted_task_text_still_uses_the_llm(monkeypatch):
 
 def test_missing_text_credential_stops_before_guessing(monkeypatch):
     monkeypatch.delenv("TEXT_MODEL_API_KEY", raising=False)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     with pytest.raises(ValueError, match="TEXT_MODEL_API_KEY"):
         model.field_text({"goal": 'Enter "Zurich"'})
 
@@ -318,3 +323,184 @@ def test_navigation_during_prediction_reobserves_without_action(runner):
     assert runner.state["status"] == "ready"
     assert runner.state["decision"] is None
     runner.state["browser"].act.assert_not_called()
+
+
+def use_router(monkeypatch, model_name="router/model"):
+    monkeypatch.setenv("JEVA_PROVIDER", "openrouter")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "router-key")
+    monkeypatch.setenv("OPENROUTER_MODEL", model_name)
+
+
+def router_reply(questions, operation="CLICK", target="2"):
+    answers = {"operation": choice(questions["operation"]["criteria"], operation)}
+    head = operation.lower() + "_target"
+    if head in questions:
+        answers[head] = choice(questions[head]["criteria"], target)
+    return {
+        "model": "router/model:free",
+        "usage": {"total_tokens": 12},
+        "choices": [{"message": {"content": json.dumps({"answers": answers})}}],
+    }
+
+
+def test_openrouter_answers_the_same_questions_in_one_request(monkeypatch):
+    use_router(monkeypatch)
+    calls = []
+
+    def post(url, key, body):
+        calls.append((url, key, body))
+        return router_reply(json.loads(body["messages"][1]["content"])["questions"])
+
+    monkeypatch.setattr(model, "post_json", post)
+    d = model.choose(page(), "Find a book", [])
+    assert len(calls) == 1, "operation and target heads must share one request"
+    url, key, payload = calls[0]
+    assert url == "https://openrouter.ai/api/v1/chat/completions"
+    assert key == "router-key"
+    assert payload["model"] == "router/model"
+    assert payload["response_format"]["type"] == "json_schema"
+    assert payload["response_format"]["json_schema"]["strict"] is True
+    assert payload["messages"][0]["content"] == CHOICE_JSON
+    sent = json.loads(payload["messages"][1]["content"])
+    assert set(sent["questions"]) == {"operation", "click_target", "type_text_target"}
+    schema = payload["response_format"]["json_schema"]["schema"]["properties"]["answers"]
+    assert schema["required"] == list(sent["questions"])
+    assert set(schema["properties"]["operation"]["properties"]["probabilities"]["required"]) == set(
+        sent["questions"]["operation"]["criteria"]
+    )
+    assert schema["properties"]["click_target"]["properties"]["choice"]["enum"] == list(
+        sent["questions"]["click_target"]["criteria"]
+    )
+    assert sent["state"]["elements"][0]["index"] == "1"
+    assert d["operation"] == "CLICK" and d["target"] == "2" and d["choice"] == "e3"
+    assert d["model"] == "router/model:free" and d["usage"] == {"total_tokens": 12}
+
+
+def test_openrouter_falls_back_when_a_provider_rejects_the_schema(monkeypatch):
+    use_router(monkeypatch)
+    model.SCHEMA_FALLBACKS.clear()
+    formats = []
+
+    def post(_url, _key, body):
+        formats.append(body["response_format"]["type"])
+        if body["response_format"]["type"] == "json_schema":
+            raise RuntimeError("Model provider returned HTTP 400; no action executed.")
+        return router_reply(json.loads(body["messages"][1]["content"])["questions"])
+
+    monkeypatch.setattr(model, "post_json", post)
+    assert model.choose(page(), "Find a book", [])["operation"] == "CLICK"
+    assert formats == ["json_schema", "json_object"]
+    assert "router/model" in model.SCHEMA_FALLBACKS
+    model.SCHEMA_FALLBACKS.clear()
+
+
+def test_openrouter_schema_can_be_disabled(monkeypatch):
+    use_router(monkeypatch)
+    monkeypatch.setenv("OPENROUTER_SCHEMA", "0")
+    calls = []
+
+    def post(_url, _key, body):
+        calls.append(body)
+        return router_reply(json.loads(body["messages"][1]["content"])["questions"])
+
+    monkeypatch.setattr(model, "post_json", post)
+    model.choose(page(), "Find a book", [])
+    assert calls[0]["response_format"] == {"type": "json_object"}
+
+
+def test_openrouter_probabilities_outside_the_range_fail_closed(monkeypatch):
+    use_router(monkeypatch)
+
+    def post(_url, _key, body):
+        criteria = json.loads(body["messages"][1]["content"])["questions"]["operation"]["criteria"]
+        answers = {
+            "operation": {"choice": "CLICK", "confidence": 1.0, "probabilities": {k: 0.5 for k in criteria}}
+        }
+        return {"choices": [{"message": {"content": json.dumps({"answers": answers})}}]}
+
+    monkeypatch.setattr(model, "post_json", post)
+    with pytest.raises(ValueError, match="no valid choice JSON"):
+        model.choose(page(), "Find a book", [])
+
+
+def test_openrouter_repair_names_the_keys_it_needs(monkeypatch):
+    use_router(monkeypatch)
+    calls = []
+
+    def post(_url, _key, body):
+        calls.append(body)
+        questions = json.loads(body["messages"][1]["content"])["questions"]
+        criteria = questions["operation"]["criteria"]
+        share = 1 / len(criteria)
+        answers = {
+            "operation": {"choice": "CLICK", "confidence": 1.0, "probabilities": {k: share for k in criteria}},
+            "click_target": {"choice": "1", "confidence": 1.0, "probabilities": {"1": 1.0}},
+        }
+        return {"choices": [{"message": {"content": json.dumps({"answers": answers})}}]}
+
+    monkeypatch.setattr(model, "post_json", post)
+    with pytest.raises(ValueError, match="no valid choice JSON"):
+        model.choose(page(), "Find a book", [])
+    hint = calls[1]["messages"][-1]["content"]
+    assert "must carry exactly these keys" in hint
+    assert '"operation"' in hint and '"click_target"' in hint
+
+
+def test_openrouter_completion_that_is_not_choice_json_stops_before_acting(monkeypatch):
+    use_router(monkeypatch)
+    post = Mock(return_value={"choices": [{"message": {"content": "sorry"}}]})
+    monkeypatch.setattr(model, "post_json", post)
+    with pytest.raises(ValueError, match="no valid choice JSON"):
+        model.choose(page(), "Find a book", [])
+    assert post.call_count == 2, "one bounded repair attempt, then fail closed"
+
+
+def test_openrouter_repair_recovers_a_non_conforming_answer(monkeypatch):
+    use_router(monkeypatch)
+    calls = []
+
+    def post(_url, _key, body):
+        calls.append(body)
+        if len(calls) == 1:
+            bad = {"answers": {"operation": {"choice": "CLICK", "confidence": 1.0, "probabilities": {"CLICK": 0.5}}}}
+            return {"choices": [{"message": {"content": json.dumps(bad)}}]}
+        return router_reply(json.loads(calls[0]["messages"][1]["content"])["questions"])
+
+    monkeypatch.setattr(model, "post_json", post)
+    d = model.choose(page(), "Find a book", [])
+    assert len(calls) == 2
+    repair = calls[1]["messages"]
+    assert repair[-2]["role"] == "assistant" and repair[-1]["role"] == "user"
+    assert "rejected" in repair[-1]["content"]
+    assert d["operation"] == "CLICK" and d["choice"] == "e3"
+
+
+def test_provider_is_explicit_or_inferred_from_the_key(monkeypatch):
+    for key in ("JEVA_PROVIDER", "OPENROUTER_API_KEY", "TYPESAFE_API_KEY"):
+        monkeypatch.delenv(key, raising=False)
+    with pytest.raises(ValueError, match="OPENROUTER_API_KEY"):
+        model.provider()
+    assert model.provider(required=False) == "unconfigured"
+    monkeypatch.setenv("TYPESAFE_API_KEY", "t")
+    assert model.provider() == "typesafe"
+    monkeypatch.setenv("OPENROUTER_API_KEY", "o")
+    assert model.provider() == "openrouter"
+    monkeypatch.setenv("JEVA_PROVIDER", "typesafe")
+    assert model.provider() == "typesafe"
+    monkeypatch.setenv("JEVA_PROVIDER", "nope")
+    with pytest.raises(ValueError, match="JEVA_PROVIDER"):
+        model.provider()
+
+
+def test_text_helper_falls_back_to_the_openrouter_key(monkeypatch):
+    for key in ("TEXT_MODEL_API_KEY", "TEXT_MODEL", "TEXT_MODEL_BASE_URL"):
+        monkeypatch.delenv(key, raising=False)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "router-key")
+    post = Mock(return_value={"choices": [{"message": {"content": '{"text":"Zurich"}'}}]})
+    monkeypatch.setattr(model, "post_json", post)
+    context = model.field_context("Fly to Zurich", page()["actions"][0], page(), [])
+    assert model.field_text(context)[0] == "Zurich"
+    url, key, body = post.call_args.args
+    assert url == "https://openrouter.ai/api/v1/chat/completions"
+    assert key == "router-key"
+    assert body["model"] == model.TEXT_MODEL_DEFAULT

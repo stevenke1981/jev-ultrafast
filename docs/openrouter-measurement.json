@@ -1,0 +1,75 @@
+{
+  "date": "2026-09-20",
+  "what": "OpenRouter choice provider: one request per decision, strict JSON Schema, one bounded repair.",
+  "platform": "Windows 10 22H2 (19045) · Python 3.13 (uv) · Chrome",
+  "task": "One synthetic Google-Flights-like state: 10 elements, 7 operations, 9 click targets, 1 fill target, 3 select values.",
+  "goal": "Find one-way flights from Zurich to London on September 20, 2026, for one adult in economy. Stop when matching flight options are visible.",
+  "settings": {
+    "JEVA_PROVIDER": "openrouter",
+    "OPENROUTER_REASONING": "none",
+    "OPENROUTER_SCHEMA": "1",
+    "repeats_per_model": 3
+  },
+  "measured": {
+    "google/gemini-2.5-flash-lite": {
+      "calls": 3,
+      "valid": 3,
+      "latency_ms": {
+        "min": 1522,
+        "median": 2654,
+        "max": 3033
+      },
+      "errors": [],
+      "cost_usd": 0.0009097
+    },
+    "qwen/qwen3.7-flash": {
+      "calls": 3,
+      "valid": 2,
+      "latency_ms": {
+        "min": 3113,
+        "median": 3235,
+        "max": 3235
+      },
+      "errors": [
+        "ValueError: OpenRouter returned no valid choice JSON (the object must carry exactly these keys: {\"operation\": [\"BLOCKED\""
+      ],
+      "cost_usd": 0.00018704
+    },
+    "inception/mercury-2.5": {
+      "calls": 3,
+      "valid": 3,
+      "latency_ms": {
+        "min": 1043,
+        "median": 2396,
+        "max": 2896
+      },
+      "errors": [],
+      "cost_usd": 0.00071843
+    }
+  },
+  "progression": [
+    {
+      "configuration": "plain JSON mode, no repair",
+      "valid": 6,
+      "of": 9,
+      "note": "first measurement; failures were key-set and parse errors"
+    },
+    {
+      "configuration": "plain JSON mode, repair with the required key list",
+      "valid": 5,
+      "of": 9,
+      "note": "key list helped some models, not all"
+    },
+    {
+      "configuration": "strict JSON Schema + repair",
+      "valid": 8,
+      "of": 9,
+      "note": "current; the only failure is a model without structured outputs"
+    }
+  ],
+  "not_measured": [
+    "TypeSafe comparison under the same task",
+    "the recorded flight task end to end (script/smoke.py needs the local Chrome remote-debugging approval)"
+  ],
+  "note": "Validity means the answer passed validate_choice: every offered key present, probabilities in 0..1 summing to 1, chosen key most probable. Nothing is normalized; a rejected answer never reaches a browser input."
+}
