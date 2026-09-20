@@ -408,6 +408,22 @@ def test_openrouter_schema_can_be_disabled(monkeypatch):
     assert calls[0]["response_format"] == {"type": "json_object"}
 
 
+def test_the_default_decision_model_is_used_when_none_is_set(monkeypatch):
+    use_router(monkeypatch)
+    monkeypatch.delenv("OPENROUTER_MODEL", raising=False)
+    calls = []
+
+    def post(_url, _key, body):
+        calls.append(body)
+        return router_reply(json.loads(body["messages"][1]["content"])["questions"])
+
+    monkeypatch.setattr(model, "post_json", post)
+    model.choose(page(), "Find a book", [])
+    assert calls[0]["model"] == model.OPENROUTER_MODEL_DEFAULT
+    assert model.OPENROUTER_MODEL_DEFAULT == "deepseek/deepseek-v4.1-flash"
+    assert model.TEXT_MODEL_DEFAULT == model.OPENROUTER_MODEL_DEFAULT, "both halves share one default"
+
+
 def test_openrouter_probabilities_outside_the_range_fail_closed(monkeypatch):
     use_router(monkeypatch)
 

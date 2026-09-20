@@ -65,13 +65,13 @@ Open **http://127.0.0.1:8766** and click **Start demo → Run automatically**. T
 
 Chrome connects through [Browser Harness](https://github.com/browser-use/browser-harness), installed by `uv sync`. Run `uv run browser-harness --doctor` if it needs connecting. Allow remote debugging in Chrome when prompted.
 
-`OPENROUTER_API_KEY` drives both halves: the choice heads and the text helper. `OPENROUTER_MODEL` selects the model that answers the operation and target questions; the example uses `inception/mercury-2.5`. The text helper reuses the same key and defaults to the same model with reasoning disabled.
+`OPENROUTER_API_KEY` drives both halves: the choice heads and the text helper. `OPENROUTER_MODEL` selects the model that answers the operation and target questions, defaulting to `deepseek/deepseek-v4.1-flash`. The text helper reuses the same key and defaults to the same model with reasoning disabled.
 
 Both providers answer the same questions, so the contract is identical: one object per question, a chosen key, and probabilities over every offered key that sum to 1. A response that does not conform is re-asked once with the rejection reason, then refused — nothing is normalized, and an unaccepted answer never reaches a browser input. Optional OpenRouter settings are `OPENROUTER_BASE_URL`, `OPENROUTER_MAX_TOKENS`, `OPENROUTER_REASONING`, `OPENROUTER_SITE_URL`, and `OPENROUTER_APP_NAME`.
 
 To use TypeSafe's Jev for the choice heads, set `JEVA_PROVIDER=typesafe` and `TYPESAFE_API_KEY`. Without `JEVA_PROVIDER`, the provider follows whichever key is present, OpenRouter first. Any OpenAI-compatible service can serve the text helper through `TEXT_MODEL_BASE_URL`, `TEXT_MODEL`, and `TEXT_MODEL_REASONING`; `TEXT_MODEL_API_KEY` overrides the key for that call.
 
-The request asks for strict structured output (`OPENROUTER_SCHEMA=0` turns that off), so the decoder rather than the model guarantees that every offered key appears. Raw numbers for one OpenRouter configuration — three models, three calls each — are in `docs/openrouter-measurement.json`; they are a sample of one task, not a benchmark.
+The request asks for strict structured output (`OPENROUTER_SCHEMA=0` turns that off), so the decoder rather than the model guarantees that every offered key appears. Raw numbers for two OpenRouter configurations — three models, three calls each — are in `docs/openrouter-measurement.json`; they are a sample of one task, not a benchmark.
 
 ## Use the library
 

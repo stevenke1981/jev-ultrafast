@@ -10,43 +10,6 @@
     "OPENROUTER_SCHEMA": "1",
     "repeats_per_model": 3
   },
-  "measured": {
-    "google/gemini-2.5-flash-lite": {
-      "calls": 3,
-      "valid": 3,
-      "latency_ms": {
-        "min": 1522,
-        "median": 2654,
-        "max": 3033
-      },
-      "errors": [],
-      "cost_usd": 0.0009097
-    },
-    "qwen/qwen3.7-flash": {
-      "calls": 3,
-      "valid": 2,
-      "latency_ms": {
-        "min": 3113,
-        "median": 3235,
-        "max": 3235
-      },
-      "errors": [
-        "ValueError: OpenRouter returned no valid choice JSON (the object must carry exactly these keys: {\"operation\": [\"BLOCKED\""
-      ],
-      "cost_usd": 0.00018704
-    },
-    "inception/mercury-2.5": {
-      "calls": 3,
-      "valid": 3,
-      "latency_ms": {
-        "min": 1043,
-        "median": 2396,
-        "max": 2896
-      },
-      "errors": [],
-      "cost_usd": 0.00071843
-    }
-  },
   "progression": [
     {
       "configuration": "plain JSON mode, no repair",
@@ -69,7 +32,104 @@
   ],
   "not_measured": [
     "TypeSafe comparison under the same task",
-    "the recorded flight task end to end (script/smoke.py needs the local Chrome remote-debugging approval)"
+    "the recorded flight task end to end (scripts/smoke.py needs the local Chrome remote-debugging approval)",
+    "deepseek reasoning enabled or at a higher effort"
   ],
-  "note": "Validity means the answer passed validate_choice: every offered key present, probabilities in 0..1 summing to 1, chosen key most probable. Nothing is normalized; a rejected answer never reaches a browser input."
+  "note": "Validity means the answer passed validate_choice: every offered key present, probabilities in 0..1 summing to 1, chosen key most probable. Nothing is normalized; a rejected answer never reaches a browser input.",
+  "default_model": "deepseek/deepseek-v4.1-flash",
+  "measured_runs": [
+    {
+      "date": "2026-09-20",
+      "default_model": "inception/mercury-2.5",
+      "repeats_per_model": 3,
+      "measured": {
+        "google/gemini-2.5-flash-lite": {
+          "calls": 3,
+          "valid": 3,
+          "latency_ms": {
+            "min": 1522,
+            "median": 2654,
+            "max": 3033
+          },
+          "errors": [],
+          "cost_usd": 0.0009097
+        },
+        "qwen/qwen3.7-flash": {
+          "calls": 3,
+          "valid": 2,
+          "latency_ms": {
+            "min": 3113,
+            "median": 3235,
+            "max": 3235
+          },
+          "errors": [
+            "ValueError: OpenRouter returned no valid choice JSON (the object must carry exactly these keys: {\"operation\": [\"BLOCKED\", \"CLICK\", \"DONE\", \""
+          ],
+          "cost_usd": 0.00018704
+        },
+        "inception/mercury-2.5": {
+          "calls": 3,
+          "valid": 3,
+          "latency_ms": {
+            "min": 1043,
+            "median": 2396,
+            "max": 2896
+          },
+          "errors": [],
+          "cost_usd": 0.00071843
+        }
+      }
+    },
+    {
+      "date": "2026-09-20",
+      "default_model": "deepseek/deepseek-v4.1-flash",
+      "repeats_per_model": 3,
+      "measured": {
+        "inception/mercury-2.5": {
+          "calls": 3,
+          "valid": 3,
+          "latency_ms": {
+            "min": 1252,
+            "median": 1660,
+            "max": 3772
+          },
+          "errors": [],
+          "cost_usd": 0.0006938
+        },
+        "deepseek/deepseek-v4.1-flash": {
+          "calls": 3,
+          "valid": 3,
+          "latency_ms": {
+            "min": 1436,
+            "median": 1550,
+            "max": 3321
+          },
+          "errors": [],
+          "cost_usd": 0.00126765
+        },
+        "deepseek/deepseek-v4-flash": {
+          "calls": 3,
+          "valid": 3,
+          "latency_ms": {
+            "min": 2892,
+            "median": 10558,
+            "max": 12437
+          },
+          "errors": [],
+          "cost_usd": 0.0002712
+        }
+      }
+    }
+  ],
+  "text_helper": {
+    "model": "deepseek/deepseek-v4.1-flash",
+    "calls": 2,
+    "value": "Zurich",
+    "latency_ms": [
+      976,
+      961
+    ],
+    "reasoning_tokens": 0,
+    "note": "Text helper for TYPE_TEXT, reasoning disabled; both calls answered with the same value as the mercury default did."
+  }
 }

@@ -13,8 +13,8 @@ CLIENT = httpx.Client(http2=True, timeout=25)
 PROVIDERS = ("openrouter", "typesafe")
 SCHEMA_FALLBACKS = set()
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-OPENROUTER_MODEL_DEFAULT = "inception/mercury-2.5"
-TEXT_MODEL_DEFAULT = "inception/mercury-2.5"
+OPENROUTER_MODEL_DEFAULT = "deepseek/deepseek-v4.1-flash"
+TEXT_MODEL_DEFAULT = "deepseek/deepseek-v4.1-flash"
 
 
 def provider(required=True):
